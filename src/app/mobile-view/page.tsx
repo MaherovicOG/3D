@@ -7,27 +7,10 @@ import ModelViewerPanel from "@/components/ModelViewerPanel";
 
 function MobileViewContent() {
   const searchParams = useSearchParams();
-  const image = searchParams.get("image") || "";
-  const style = searchParams.get("style") || "packaging";
-  const name = searchParams.get("name") || "Product Asset";
+  const style = searchParams.get("style") || "chair";
+  const name = searchParams.get("name") || "Furniture Asset";
 
   const [activeTab, setActiveTab] = useState<"canvas" | "ar">("canvas");
-
-  if (!image) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-950 text-slate-100">
-        <div className="w-12 h-12 rounded-xl bg-red-950/50 border border-red-500/30 flex items-center justify-center text-red-400 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-        </div>
-        <h2 className="text-lg font-bold">Invalid QR Code</h2>
-        <p className="text-xs text-slate-400 mt-2 max-w-xs">
-          This link does not contain a product image path. Please generate a new QR code from your desktop studio dashboard.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-950 text-slate-100 font-sans">
@@ -42,8 +25,8 @@ function MobileViewContent() {
             Aether3D <span className="text-indigo-400">Mobile</span>
           </span>
         </div>
-        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-semibold truncate max-w-[120px]">
-          {name}
+        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-semibold truncate max-w-[120px] uppercase font-mono">
+          {style}
         </span>
       </header>
 
@@ -69,7 +52,7 @@ function MobileViewContent() {
             onClick={() => setActiveTab("ar")}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
               activeTab === "ar"
-                ? "bg-slate-800 text-white shadow-md"
+                ? "bg-slate-850 text-white shadow-md"
                 : "text-slate-400 hover:text-slate-200"
             }`}
             id="mobile-tab-ar-btn"
@@ -88,7 +71,6 @@ function MobileViewContent() {
           {activeTab === "canvas" ? (
             <div className="space-y-4">
               <ThreeViewer
-                imageSrc={image}
                 style={style}
                 autoRotate={true}
                 bgColor="studio"
@@ -96,14 +78,14 @@ function MobileViewContent() {
                 showGrid={false}
               />
               <div className="p-3.5 rounded-xl border border-slate-900 bg-slate-950/40 text-[11px] text-slate-500 text-center">
-                Drag on the screen to rotate label mockup. Pinch to zoom in/out.
+                Drag to orbit and rotate the 3D {name}. Pinch to zoom.
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <ModelViewerPanel imageSrc={image} style={style} />
+              <ModelViewerPanel style={style} />
               <div className="p-3.5 rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-[11px] text-emerald-400/90 text-center">
-                💡 Tap the <strong className="font-semibold text-white">AR badge</strong> in the viewport to launch camera view and project the model in your space.
+                💡 Tap the <strong className="font-semibold text-white">AR Available</strong> button in the viewer to enable camera view and place the 3D {name} in your room.
               </div>
             </div>
           )}

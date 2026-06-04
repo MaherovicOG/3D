@@ -3,10 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 interface ThreeViewerProps {
-  imageSrc: string;
-  style: "plane" | "box" | "parallax" | "card" | string;
+  style: "chair" | "decor" | "desk" | "rug" | string;
   autoRotate: boolean;
   bgColor: "studio" | "light" | "dark" | "transparent";
   rotationSpeed: number;
@@ -14,7 +14,6 @@ interface ThreeViewerProps {
 }
 
 export default function ThreeViewer({
-  imageSrc,
   style,
   autoRotate,
   bgColor,
@@ -30,10 +29,10 @@ export default function ThreeViewer({
   const productMeshGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
 
-  // Loading state for texture
+  // Loading state for 3D model
   const [loading, setLoading] = useState(true);
 
-  // Background style classes or styling based on selection
+  // Background style classes based on selection
   const getContainerBg = () => {
     switch (bgColor) {
       case "light":
@@ -52,13 +51,12 @@ export default function ThreeViewer({
   const exportScreenshot = () => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
     
-    // Render once to make sure drawing buffer has the frame
     rendererRef.current.render(sceneRef.current, cameraRef.current);
     const dataURL = canvasRef.current?.toDataURL("image/png");
     if (!dataURL) return;
 
     const link = document.createElement("a");
-    link.download = `product-3d-showcase-${Date.now()}.png`;
+    link.download = `furniture-studio-${style}-${Date.now()}.png`;
     link.href = dataURL;
     link.click();
   };
@@ -76,7 +74,7 @@ export default function ThreeViewer({
 
     // 2. Camera setup
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, 6);
+    camera.position.set(0, 2, 6); // Point camera slightly downwards
     cameraRef.current = camera;
 
     // 3. Renderer setup
@@ -84,7 +82,7 @@ export default function ThreeViewer({
       canvas: canvasRef.current,
       antialias: true,
       alpha: true,
-      preserveDrawingBuffer: true, // Crucial for screenshot exports
+      preserveDrawingBuffer: true,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -98,6 +96,7 @@ export default function ThreeViewer({
     controls.dampingFactor = 0.05;
     controls.maxDistance = 15;
     controls.minDistance = 2;
+    controls.target.set(0, 0, 0);
     controlsRef.current = controls;
 
     // 5. Lighting
@@ -105,23 +104,22 @@ export default function ThreeViewer({
     scene.add(ambientLight);
 
     const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    mainLight.position.set(5, 5, 5);
+    mainLight.position.set(5, 7, 5);
     mainLight.castShadow = true;
     mainLight.shadow.mapSize.width = 2048;
     mainLight.shadow.mapSize.height = 2048;
     mainLight.shadow.bias = -0.001;
     scene.add(mainLight);
 
-    const fillLight = new THREE.DirectionalLight(0xa5b4fc, 0.4); // Subtle indigo tint
+    const fillLight = new THREE.DirectionalLight(0xa5b4fc, 0.4);
     fillLight.position.set(-5, 3, -5);
     scene.add(fillLight);
 
-    // Subtle bottom light for details
-    const bounceLight = new THREE.DirectionalLight(0xffffff, 0.2);
+    const bounceLight = new THREE.DirectionalLight(0xffffff, 0.25);
     bounceLight.position.set(0, -5, 0);
     scene.add(bounceLight);
 
-    // 6. Grid Helper
+    // 6. Grid Helper (Floor level is at y = -2)
     const gridHelper = new THREE.GridHelper(10, 10, 0x4f46e5, 0x1e293b);
     gridHelper.position.y = -2;
     scene.add(gridHelper);
@@ -141,7 +139,6 @@ export default function ThreeViewer({
 
       cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
-
       rendererRef.current.setSize(w, h);
     };
     window.addEventListener("resize", handleResize);
@@ -171,7 +168,6 @@ export default function ThreeViewer({
       window.removeEventListener("resize", handleResize);
       renderer.dispose();
       
-      // Dispose geometry/materials inside group
       productGroup.traverse((object) => {
         if (object instanceof THREE.Mesh) {
           object.geometry.dispose();
@@ -192,11 +188,11 @@ export default function ThreeViewer({
     }
   }, [showGrid]);
 
-  // Update Object Geometry and Textures when image or style changes
+  // Load GLTF Model dynamically when style changes
   useEffect(() => {
     const scene = sceneRef.current;
     const group = productMeshGroupRef.current;
-    if (!scene || !group || !imageSrc) return;
+    if (!scene || !group || !style) return;
 
     setLoading(true);
 
@@ -214,139 +210,81 @@ export default function ThreeViewer({
       group.remove(obj);
     }
 
-    // Load texture
-    const loader = new THREE.TextureLoader();
+    // Load GLTF
+    const loader = new GLTFLoader();
     loader.load(
-      imageSrc,
-      (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        
-        // Find aspect ratio of the image to scale geometry correctly
-        const image = texture.image;
-        const aspect = image.width / image.height;
-        let width = 3;
-        let height = 3 / aspect;
+      `/models/${style}.glb`,
+      (gltf) => {
+        const model = gltf.scene;
 
-        if (aspect > 1) {
-          width = 3;
-          height = 3 / aspect;
+        // Traverse to enable shadows and apply styling materials to procedural placeholders
+        model.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            // Apply custom wood/carpet colors to box-textured placeholders
+            if (style === "rug" && child.material) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x991b1b, // Crimson red carpet
+                roughness: 0.9,
+                metalness: 0.05,
+              });
+            } else if (style === "desk" && child.material) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x854d0e, // Wood walnut/amber color
+                roughness: 0.7,
+                metalness: 0.1,
+              });
+            }
+          }
+        });
+
+        // Apply scale factors based on selected asset
+        if (style === "rug") {
+          model.scale.set(2.0, 0.005, 3.0); // Flat rug sheet
+        } else if (style === "desk") {
+          model.scale.set(2.0, 0.75, 1.2); // Desk block
+        } else if (style === "decor") {
+          model.scale.set(3.5, 3.5, 3.5); // Scale up small duck model
+        } else if (style === "chair") {
+          model.scale.set(1.6, 1.6, 1.6); // Scale chair
         } else {
-          height = 3;
-          width = 3 * aspect;
+          model.scale.set(1.5, 1.5, 1.5);
         }
 
-        // Apply anisotropic filtering if supported for sharper texture rendering
-        const maxAnisotropy = rendererRef.current?.capabilities.getMaxAnisotropy() || 1;
-        texture.anisotropy = maxAnisotropy;
+        // Center the model's geometry
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
 
-        if (style === "plane" || style === "card") {
-          // 1. PLANE STYLE
-          const geometry = new THREE.PlaneGeometry(width, height);
-          const material = new THREE.MeshStandardMaterial({
-            map: texture,
-            transparent: true,
-            side: THREE.DoubleSide,
-            roughness: 0.3,
-            metalness: 0.1,
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          group.add(mesh);
+        // Align model's base to the floor level (y = -2)
+        const sizeY = box.max.y - box.min.y;
+        model.position.y = -2 + sizeY / 2;
 
-        } else if (style === "box" || style === "packaging" || style === "electronics" || style === "apparel" || style === "cosmetics") {
-          // 2. BOX/PACKAGE STYLE (Thick Representation)
-          const depth = style === "packaging" ? 0.8 : style === "cosmetics" ? 0.6 : 0.25;
-          const geometry = new THREE.BoxGeometry(width, height, depth);
-
-          // Standard grey for sides
-          const sideMat = new THREE.MeshStandardMaterial({
-            color: 0x1e293b,
-            roughness: 0.7,
-            metalness: 0.2,
-          });
-
-          // Front and Back textured faces
-          const frontMat = new THREE.MeshStandardMaterial({
-            map: texture,
-            roughness: 0.3,
-            metalness: 0.1,
-            transparent: true,
-          });
-
-          // In BoxGeometry, material order is: [px, nx, py, ny, pz, nz]
-          // which corresponds to: [Right, Left, Top, Bottom, Front, Back]
-          const materials = [
-            sideMat,  // px (Right)
-            sideMat,  // nx (Left)
-            sideMat,  // py (Top)
-            sideMat,  // ny (Bottom)
-            frontMat, // pz (Front)
-            frontMat, // nz (Back)
-          ];
-
-          const mesh = new THREE.Mesh(geometry, materials);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          group.add(mesh);
-
-        } else if (style === "parallax") {
-          // 3. PARALLAX FLOAT
-          // Front plane
-          const frontGeom = new THREE.PlaneGeometry(width, height);
-          const frontMat = new THREE.MeshStandardMaterial({
-            map: texture,
-            transparent: true,
-            roughness: 0.2,
-            metalness: 0.1,
-            side: THREE.DoubleSide,
-          });
-          const frontMesh = new THREE.Mesh(frontGeom, frontMat);
-          frontMesh.position.z = 0.12;
-          frontMesh.castShadow = true;
-          group.add(frontMesh);
-
-          // Back floating shadow plane
-          const backGeom = new THREE.PlaneGeometry(width * 1.05, height * 1.05);
-          const backMat = new THREE.MeshBasicMaterial({
-            color: 0x000000,
-            transparent: true,
-            opacity: 0.45,
-            side: THREE.DoubleSide,
-          });
-          const backMesh = new THREE.Mesh(backGeom, backMat);
-          backMesh.position.z = -0.05;
-          group.add(backMesh);
-        } else if (style === "rug") {
-          // 4. RUG FLOOR STYLE (Flat on the floor)
-          const geometry = new THREE.PlaneGeometry(width, height);
-          const material = new THREE.MeshStandardMaterial({
-            map: texture,
-            transparent: true,
-            side: THREE.DoubleSide,
-            roughness: 0.85,
-            metalness: 0.05,
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.rotation.x = -Math.PI / 2; // Flat on floor
-          mesh.position.y = -1.99; // Rest slightly above the floor grid (at y = -2)
-          mesh.receiveShadow = true;
-          mesh.castShadow = true;
-          group.add(mesh);
+        if (style === "rug") {
+          model.position.y = -1.99; // Rest just above floor to prevent z-fighting
         }
 
-        // Reset rotation when swapping
-        group.rotation.set(0, 0, 0);
+        group.add(model);
+        
+        // Adjust OrbitControls target to center of the loaded model
+        if (controlsRef.current) {
+          controlsRef.current.target.set(0, model.position.y, 0);
+        }
 
         setLoading(false);
       },
       undefined,
       (err) => {
-        console.error("Error loading texture:", err);
+        console.error("Error loading GLTF model:", err);
         setLoading(false);
       }
     );
-  }, [imageSrc, style]);
+
+    // Reset rotation when swapping style
+    group.rotation.set(0, 0, 0);
+  }, [style]);
 
   return (
     <div className="relative w-full h-[500px] rounded-2xl overflow-hidden glass-panel group flex flex-col justify-end">
@@ -359,14 +297,14 @@ export default function ThreeViewer({
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-10 transition-opacity">
           <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-semibold text-slate-300">Rendering 3D Simulation...</p>
+          <p className="text-sm font-semibold text-slate-300">Loading 3D Object model...</p>
         </div>
       )}
 
       {/* Top Floating Info */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <span className="px-3 py-1 rounded-full bg-slate-950/70 border border-slate-800 text-[10px] uppercase font-mono tracking-widest text-indigo-400">
-          Simulation: {style}
+          Preset: {style}
         </span>
       </div>
 
@@ -392,7 +330,7 @@ export default function ThreeViewer({
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 9.152c.582.448 1.148.89 1.676 1.345m-1.676-1.345c-.528-.407-1.09-.817-1.676-1.226M15.042 9.152c-.582-.448-1.148-.89-1.676-1.345m1.676 1.345c.528.407 1.09.817 1.676 1.226M16.718 10.5c.528.407 1.09.817 1.676 1.226m-1.676-1.226c-.528-.407-1.09-.817-1.676-1.226m1.676 1.226a40.063 40.063 0 01-1.676-1.345m0 0a40.07 40.07 0 00-1.676-1.226M9 9.75h-.008v.008H9V9.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 2.25h-.008v.008H9V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
           </svg>
-          Hold left-click to drag & rotate | scroll to zoom
+          Drag to orbit | scroll to zoom
         </span>
       </div>
     </div>
