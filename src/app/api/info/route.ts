@@ -14,6 +14,10 @@ export async function GET() {
       for (const iface of ifaces) {
         // Skip loopback (127.0.0.1) and non-IPv4 addresses
         if (iface.family === "IPv4" && !iface.internal) {
+          // Skip link-local IP addresses (169.254.x.x) which are unroutable
+          if (iface.address.startsWith("169.254.")) {
+            continue;
+          }
           // Prioritize standard Wi-Fi (en0 on Mac, wlan/ethernet on Windows/Linux)
           localIp = iface.address;
           if (name.startsWith("en") || name.startsWith("wlan") || name.startsWith("eth")) {
