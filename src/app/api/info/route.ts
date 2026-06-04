@@ -1,24 +1,34 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import os from "os";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // 1. Get host from request headers
+    const host = req.headers.get("host") || "";
+    const isProduction = host && 
+      !host.includes("localhost") && 
+      !host.includes("127.0.0.1") && 
+      !host.includes("169.254.");
+
+    if (isProduction) {
+      // If running on Vercel/production, return the public host name
+      return NextResponse.json({ localIp: host });
+    }
+
+    // 2. Fallback to local network IP for local development/Wi-Fi sharing
     const interfaces = os.networkInterfaces();
     let localIp = "localhost";
 
-    // Loop through network interfaces to find IPv4
     for (const name of Object.keys(interfaces)) {
       const ifaces = interfaces[name];
       if (!ifaces) continue;
 
       for (const iface of ifaces) {
-        // Skip loopback (127.0.0.1) and non-IPv4 addresses
         if (iface.family === "IPv4" && !iface.internal) {
-          // Skip link-local IP addresses (169.254.x.x) which are unroutable
+          // Skip link-local IP addresses (169.254.x.x)
           if (iface.address.startsWith("169.254.")) {
             continue;
           }
-          // Prioritize standard Wi-Fi (en0 on Mac, wlan/ethernet on Windows/Linux)
           localIp = iface.address;
           if (name.startsWith("en") || name.startsWith("wlan") || name.startsWith("eth")) {
             break;
