@@ -71,16 +71,25 @@ export default function Dashboard() {
     setIsQrModalOpen(true);
 
     try {
-      // Fetch host machine local network IP address
-      const infoRes = await fetch("/api/info");
-      const infoData = await infoRes.json();
-      const localIp = infoData.localIp || "localhost";
+      let baseShareUrl = "";
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-      // Build target phone link
-      const port = window.location.port ? `:${window.location.port}` : "";
-      const baseShareUrl = `http://${localIp}${port}/mobile-view?style=${activeProduct.style}&name=${encodeURIComponent(
-        activeProduct.name
-      )}`;
+      if (isLocal) {
+        // Fetch host machine local network IP address
+        const infoRes = await fetch("/api/info");
+        const infoData = await infoRes.json();
+        const localIp = infoData.localIp || "localhost";
+
+        const port = window.location.port ? `:${window.location.port}` : "";
+        baseShareUrl = `http://${localIp}${port}/mobile-view?style=${activeProduct.style}&name=${encodeURIComponent(
+          activeProduct.name
+        )}`;
+      } else {
+        // Use production deployment origin directly (Vercel/production)
+        baseShareUrl = `${window.location.origin}/mobile-view?style=${activeProduct.style}&name=${encodeURIComponent(
+          activeProduct.name
+        )}`;
+      }
       
       setMobileShareUrl(baseShareUrl);
 
@@ -432,19 +441,20 @@ export default function Dashboard() {
                   ) : (
                     <div className="text-xs text-slate-600 font-mono">No Code</div>
                   )}
-                </div>
-
-                {/* Instructions info box */}
+                  {/* Instructions info box */}
                 <div className="p-3.5 rounded-xl border border-indigo-500/10 bg-indigo-500/5 text-left space-y-1">
                   <span className="text-[11px] font-bold text-indigo-300 block flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.282 7.657C8.5 7.61 8.74 7.6 9 7.6c1.173 0 2.259.417 3.1 1.1l.6.48m.01 0a4.49 4.49 0 011.888-1.58M12.71 8.08a4.49 4.49 0 00-1.89-1.58m1.89 1.58V15.75m0-7.67v7.67" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Wi-Fi Connection Required
+                    {typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "Wi-Fi Connection Required" : "Cloud Sharing Enabled"}
                   </span>
                   <p className="text-[10px] text-slate-400 leading-normal">
-                    Your smartphone must be connected to the **same Wi-Fi network** as this computer to load local 3D assets.
+                    {typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+                      ? "Your smartphone must be connected to the same Wi-Fi network as this computer."
+                      : "Scanning opens this app publicly in your phone browser. No local Wi-Fi pairing required."}
                   </p>
+                </div>
                 </div>
 
                 {/* URL display block */}
