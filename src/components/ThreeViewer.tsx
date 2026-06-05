@@ -7,6 +7,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 interface ThreeViewerProps {
   style: "chair" | "decor" | "desk" | "rug" | string;
+  glbBlobUrl?: string;
   autoRotate: boolean;
   bgColor: "studio" | "light" | "dark" | "transparent";
   rotationSpeed: number;
@@ -15,6 +16,7 @@ interface ThreeViewerProps {
 
 export default function ThreeViewer({
   style,
+  glbBlobUrl,
   autoRotate,
   bgColor,
   rotationSpeed,
@@ -212,8 +214,10 @@ export default function ThreeViewer({
 
     // Load GLTF
     const loader = new GLTFLoader();
+    const loadUrl = style === "custom" && glbBlobUrl ? glbBlobUrl : `/models/${style}.glb`;
+    
     loader.load(
-      `/models/${style}.glb`,
+      loadUrl,
       (gltf) => {
         const model = gltf.scene;
 
@@ -284,7 +288,7 @@ export default function ThreeViewer({
 
     // Reset rotation when swapping style
     group.rotation.set(0, 0, 0);
-  }, [style]);
+  }, [style, glbBlobUrl]);
 
   return (
     <div className="relative w-full h-[500px] rounded-2xl overflow-hidden glass-panel group flex flex-col justify-end">

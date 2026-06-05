@@ -4,9 +4,10 @@ import React, { useEffect, useState } from "react";
 
 interface ModelViewerPanelProps {
   style: "chair" | "decor" | "desk" | "rug" | string;
+  glbBlobUrl?: string;
 }
 
-export default function ModelViewerPanel({ style = "chair" }: ModelViewerPanelProps) {
+export default function ModelViewerPanel({ style = "chair", glbBlobUrl }: ModelViewerPanelProps) {
   const [autoRotate, setAutoRotate] = useState(true);
   const [arEnabled, setArEnabled] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -70,11 +71,11 @@ export default function ModelViewerPanel({ style = "chair" }: ModelViewerPanelPr
         <div className="relative w-full h-[380px] rounded-xl overflow-hidden bg-gradient-to-tr from-slate-950 to-indigo-950/20 border border-slate-800/80 flex items-center justify-center">
           <model-viewer
             id="ar-model-viewer"
-            src={`/models/${style}.glb`}
+            src={style === "custom" && glbBlobUrl ? glbBlobUrl : `/models/${style}.glb`}
             alt="3D Furniture Model Showcase"
             ar={arEnabled}
             ar-modes="webxr scene-viewer quick-look"
-            ar-placement={style === "rug" || style === "desk" ? "floor" : "auto"} // Snap rugs and desks directly to the floor!
+            ar-placement={style === "rug" || style === "desk" || style === "custom" ? "floor" : "auto"} // Snap rugs, desks, and custom cutouts directly to the floor!
             camera-controls
             auto-rotate={autoRotate}
             scale={getScaleString()} // Dynamic scaling
@@ -135,7 +136,7 @@ export default function ModelViewerPanel({ style = "chair" }: ModelViewerPanelPr
 
       <div className="mt-5 border-t border-slate-900 pt-4 flex flex-col gap-2">
         <p className="text-[10px] text-slate-500 font-mono text-center">
-          Interactive WebAR model render. Snapping: {style === "rug" || style === "desk" ? "floor" : "auto"}.
+          Interactive WebAR model render. Snapping: {style === "rug" || style === "desk" || style === "custom" ? "floor" : "auto"}.
         </p>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import ThreeViewer from "@/components/ThreeViewer";
 import ModelViewerPanel from "@/components/ModelViewerPanel";
@@ -8,9 +8,51 @@ import ModelViewerPanel from "@/components/ModelViewerPanel";
 function MobileViewContent() {
   const searchParams = useSearchParams();
   const style = searchParams.get("style") || "chair";
-  const name = searchParams.get("name") || "Furniture Asset";
+  const name = searchParams.get("name") || (style === "custom" ? "Custom Cutout" : "Furniture Asset");
+  const imgUrl = searchParams.get("imgUrl") || "";
 
   const [activeTab, setActiveTab] = useState<"canvas" | "ar">("canvas");
+  const [glbBlobUrl, setGlbBlobUrl] = useState<string>("");
+  const [loadingGlb, setLoadingGlb] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (style !== "custom" || !imgUrl) return;
+
+    let active = true;
+    let blobUrl = "";
+
+    const loadAndBuild = async () => {
+      setLoadingGlb(true);
+      try {
+        const { loadImageToCanvas, generateGlbFromCanvas } = await import("@/utils/glbGenerator");
+        const canvas = await loadImageToCanvas(imgUrl);
+        
+        if (!active) return;
+        
+        const glbBlob = await generateGlbFromCanvas(canvas);
+        
+        if (!active) return;
+        
+        blobUrl = URL.createObjectURL(glbBlob);
+        setGlbBlobUrl(blobUrl);
+      } catch (err) {
+        console.error("Failed to generate GLB on mobile:", err);
+      } finally {
+        if (active) {
+          setLoadingGlb(false);
+        }
+      }
+    };
+
+    loadAndBuild();
+
+    return () => {
+      active = false;
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [style, imgUrl]);
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-950 text-slate-100 font-sans">
@@ -68,10 +110,17 @@ function MobileViewContent() {
       {/* Main Viewport Content */}
       <main className="flex-grow p-4 flex flex-col justify-center">
         <div className="w-full max-w-md mx-auto">
-          {activeTab === "canvas" ? (
+          {style === "custom" && loadingGlb ? (
+            <div className="w-full h-[380px] rounded-2xl glass-panel flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 border border-slate-900">
+              <div className="w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+              <p className="text-xs text-slate-350 font-semibold">Generating 3D Cutout...</p>
+              <p className="text-[10px] text-slate-500 mt-1">Downloading image and rendering model</p>
+            </div>
+          ) : activeTab === "canvas" ? (
             <div className="space-y-4">
               <ThreeViewer
                 style={style}
+                glbBlobUrl={glbBlobUrl || undefined}
                 autoRotate={true}
                 bgColor="studio"
                 rotationSpeed={1.5}
@@ -83,7 +132,10 @@ function MobileViewContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              <ModelViewerPanel style={style} />
+              <ModelViewerPanel 
+                style={style} 
+                glbBlobUrl={glbBlobUrl || undefined}
+              />
               <div className="p-3.5 rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-[11px] text-emerald-400/90 text-center">
                 💡 Tap the <strong className="font-semibold text-white">AR Available</strong> button in the viewer to enable camera view and place the 3D {name} in your room.
               </div>
@@ -94,7 +146,7 @@ function MobileViewContent() {
 
       {/* Footer */}
       <footer className="px-5 py-4 border-t border-slate-900/60 bg-slate-950 text-center text-[10px] text-slate-500">
-        Aether3D Studio Mobile • Connected over Local Wi-Fi
+        Aether3D Studio Mobile • {imgUrl ? "Cloud Shared Asset" : "Connected over Local Wi-Fi"}
       </footer>
 
     </div>
